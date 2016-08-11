@@ -28,6 +28,10 @@ import time
 
 models_exist = True
 
+models_dir = 'models'
+filenames = ['dmc', 'cbow', 'dmm']
+filenames = map(lambda f:'/'.join([models_dir,f]), filenames)
+
 SentimentDocument = namedtuple('SentimentDocument', 'words tags split sentiment')
 
 alldocs = []  # will hold all docs in original order
@@ -222,8 +226,6 @@ if not models_exist:
 
 
 
-    filenames = ['dmc', 'cbow', 'dmm']
-
     for model, filename in zip(models_by_name.values()[:3], filenames):
         model.save(filename)
 
@@ -231,8 +233,7 @@ if not models_exist:
 #####################################################################################
 
 if models_exist: 
-    fnames = ['dmc', 'cbow', 'dmm']
-    models = [Doc2Vec.load(fname) for fname in fnames]
+    models = [Doc2Vec.load(fname) for fname in filenames]
 else: 
     models = simple_models
 
@@ -255,7 +256,7 @@ for model in models:
     print 'Model: {}: {}\n'.format(model, model.most_similar(positive=['awesome'], negative=['awful']))
 
 for model in models:
-    sections = model.accuracy('questions-words.txt')
+    sections = model.accuracy('data/questions-words.txt')
     correct, incorrect = len(sections[-1]['correct']), len(sections[-1]['incorrect'])
     print('%s: %0.2f%% correct (%d of %d)' % (model, float(correct*100)/(correct+incorrect), correct, correct+incorrect))
   
