@@ -6,7 +6,8 @@ from nltk.corpus import stopwords
 def cleanup(review, remove_stopwords=False):
   
     # Remove HTML
-    review_text = BeautifulSoup(review, 'lxml').get_text() 
+    #review_text = BeautifulSoup(review, 'lxml').get_text() 
+    review_text = review.replace('<br />', ' ')
     #
     # Remove non-letters     
     # TBD: do NOT remove everything, keep emoticons etc

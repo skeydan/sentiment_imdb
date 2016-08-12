@@ -11,19 +11,51 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 
+import io
+from nltk.corpus import stopwords
+
 import preprocess
 import utils
 
 
-reviews = pd.read_csv("data/labeledTrainData.tsv", header=0, delimiter="\t", quoting=3)
+with io.open('data/aclImdb/train-pos.txt', encoding='utf-8') as f:
+    l = list(f)
+    train_pos = pd.DataFrame({'review': l})
+    
+with io.open('data/aclImdb/train-neg.txt', encoding='utf-8') as f:
+    l = list(f)
+    train_neg = pd.DataFrame({'review': l})    
+    
+train_reviews = pd.concat([train_neg, train_pos], ignore_index=True)
 
-reviews_clean = []
-for i in xrange( 0, reviews["review"].size ):
-    reviews_clean.append(" ".join(preprocess.cleanup(reviews["review"][i], remove_stopwords=True)))
 
+with io.open('data/aclImdb/test-pos.txt', encoding='utf-8') as f:
+    l = list(f)
+    test_pos = pd.DataFrame({'review': l})
+    
+with io.open('data/aclImdb/test-neg.txt', encoding='utf-8') as f:
+    l = list(f)
+    test_neg = pd.DataFrame({'review': l})    
+    
+test_reviews = pd.concat([test_neg, test_pos], ignore_index=True)
 
+   
+    
+train_reviews_clean = []
+for i in xrange( 0, train_reviews["review"].size ):
+    train_reviews_clean.append(" ".join(preprocess.cleanup(train_reviews["review"][i], remove_stopwords=False)))
 
-X_train, X_test, y_train, y_test = train_test_split(reviews_clean, reviews['sentiment'], test_size=0.2, random_state=0)
+test_reviews_clean = []
+for i in xrange( 0, test_reviews["review"].size ):
+    test_reviews_clean.append(" ".join(preprocess.cleanup(test_reviews["review"][i], remove_stopwords=False)))
+
+X_train = train_reviews_clean
+X_test = test_reviews_clean
+
+y_train = np.append(np.zeros(12500), np.ones(12500))
+y_test = np.append(np.zeros(12500), np.ones(12500)) 
+
+stopwords_nltk = stopwords.words("english")
 
 
 print '''
@@ -32,26 +64,28 @@ print '''
 ******************************************************************************/
 '''
 
-for i in range(1,4):
-    vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                                stop_words = None, max_features = 5000, ngram_range = (1,i))
+for remove_stop_words in [stopwords_nltk, None]:
+    print '\n\nStop words removed: {}\n*******************************'.format(remove_stop_words)    
+    for i in range(1,4):
+        vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
+                                    stop_words = remove_stop_words, max_features = 5000, ngram_range = (1,i))
 
-    # sparse matrix
-    words_array = vectorizer.fit_transform(X_train).toarray()
+        # sparse matrix
+        words_array = vectorizer.fit_transform(X_train).toarray()
 
-    vocabulary = vectorizer.get_feature_names()
-    #print vocabulary[0:10]
-    #print vectorizer.vocabulary_.get('able')
+        vocabulary = vectorizer.get_feature_names()
+        #print vocabulary[0:10]
+        #print vectorizer.vocabulary_.get('able')
 
-    counts = np.sum(words_array, axis=0)
-    word_counts_overall = pd.DataFrame({'word': vocabulary, 'count': counts})
-    
-    word_counts_for_max_ngram = word_counts_overall[word_counts_overall.word.apply(lambda c: len(c.split()) >= i)]
-    
-    word_counts_for_max_ngram_sorted = word_counts_for_max_ngram.sort_values(by='count', ascending=False)
-    print '\nMost frequent ngrams for ngrams in range 1 - {}:'.format(i)
-    
-    print word_counts_for_max_ngram_sorted[:40]
+        counts = np.sum(words_array, axis=0)
+        word_counts_overall = pd.DataFrame({'word': vocabulary, 'count': counts})
+           
+        word_counts_for_max_ngram = word_counts_overall[word_counts_overall.word.apply(lambda c: len(c.split()) >= i)]
+           
+        word_counts_for_max_ngram_sorted = word_counts_for_max_ngram.sort_values(by='count', ascending=False)
+        print '\nMost frequent ngrams for ngrams in range 1 - {}:'.format(i)
+            
+        print word_counts_for_max_ngram_sorted[:40]
 
 
 print '''
@@ -68,9 +102,10 @@ logistic_model = LogisticRegression()
 logistic_pipeline = Pipeline([("vectorizer", vectorizer), ("logistic", logistic_model)])
 
 search_params = dict(vectorizer__ngram_range = [(1,1), (1,2), (1,3)],
+                     vectorizer__stop_words = [stopwords_nltk, None],
                      logistic__C = [0.01, 0.03, 0.05, 0.1])
 
-best_logistic = GridSearchCV(logistic_pipeline, param_grid=search_params, cv=5, verbose=2)
+best_logistic = GridSearchCV(logistic_pipeline, param_grid=search_params, cv=5, verbose=1)
 best_logistic.fit(X_train, y_train)
 
 print(best_logistic.best_params_)
@@ -79,21 +114,7 @@ print best_logistic.best_estimator_.named_steps['logistic'].C
 
 utils.assess_classification_performance(best_logistic,  X_train, y_train, X_test, y_test)
 
-'''
-{'logistic__C': 0.05, 'vectorizer__ngram_range': (1, 2)}
 
-Classification performance overview:
-*****************************
-accuracy (train/test): 0.9357 / 0.8806
-
-Confusion_matrix (training data):
-[[9241  711]
- [ 575 9473]]
-Confusion_matrix (test data):
-[[2220  328]
- [ 269 2183]]
-
-'''
 
 print '''
 /******************************************************************************
@@ -108,26 +129,16 @@ svc_model = SVC()
 
 svc_pipeline = Pipeline([("vectorizer", vectorizer), ("svc", svc_model)])
 
-search_params = dict(vectorizer__ngram_range = [(1,1), (1,2), (1,3)])
+search_params = dict(vectorizer__ngram_range = [(1,1), (1,2), (1,3)],
+                    vectorizer__stop_words = [stopwords_nltk, None])
 
-best_svc = GridSearchCV(svc_pipeline, param_grid=search_params, cv=5, verbose=2)
+best_svc = GridSearchCV(svc_pipeline, param_grid=search_params, cv=5, verbose=1)
 best_svc.fit(X_train, y_train)
 
 print(best_svc.best_params_)
 print(best_svc.grid_scores_)
 
 utils.assess_classification_performance(best_svc,  X_train, y_train, X_test, y_test)
-
-'''
-
-
-{'vectorizer__ngram_range': (1, 2)}
-
-Classification performance overview:
-*****************************
-accuracy (train/test): 0.85325 / 0.8496
-
-'''
 
 
 
@@ -145,9 +156,10 @@ forest_model = RandomForestClassifier(n_estimators = 100)
 forest_pipeline = Pipeline([("vectorizer", vectorizer), ("forest", forest_model)])
 
 search_params = dict(vectorizer__ngram_range = [(1,1), (1,2), (1,3)],
-                     forest__max_depth = [10, 15, 20])
+                     vectorizer__stop_words = [stopwords_nltk, None],
+                     forest__max_depth = [15, 20, 25])
 
-best_forest = GridSearchCV(forest_pipeline, param_grid=search_params, cv=5, verbose=2)
+best_forest = GridSearchCV(forest_pipeline, param_grid=search_params, cv=5, verbose=1)
 best_forest.fit(X_train, y_train)
 
 print(best_forest.best_params_)
@@ -156,18 +168,6 @@ print best_forest.best_estimator_.named_steps['forest'].feature_importances_
 
 utils.assess_classification_performance(best_forest,  X_train, y_train, X_test, y_test)
 
-'''
-'vectorizer__ngram_range': (1, 1), 'forest__max_depth': 15}
-
-accuracy (train/test): 0.89085 / 0.836
-
-Confusion_matrix (training data):
-[[8350 1602]
- [ 581 9467]]
-Confusion_matrix (test data):
-[[2013  535]
- [ 285 2167]]
-'''
 
 
 print '''
@@ -190,80 +190,7 @@ for i in range(1,4):
 
 
 
-'''
-/home/key/python/anaconda2/lib/python2.7/site-packages/sklearn/discriminant_analysis.py:688: UserWarning: Variables are collinear
-  warnings.warn("Variables are collinear")
-  
-Classification performance overview:
-*****************************
-accuracy (train/test): 0.56565 / 0.5296
-
-Confusion_matrix (training data):
-[[9947    5]
- [8682 1366]]
-Confusion_matrix (test data):
-[[2528   20]
- [2332  120]]
-'''
 
 
 
 
-'''
-
-forest_model.fit( X_train, y_train)    
-
-
-print('Feature importances: {}\n'.format(forest_model.feature_importances_))
-
-
-https://www.kaggle.com/c/word2vec-nlp-tutorial/details/part-1-for-beginners-bag-of-words
-
-http://deeplearning.net/tutorial/lstm.html
-
-http://machinelearningmastery.com/sequence-classification-lstm-recurrent-neural-networks-python-keras/
-
-http://cs.stanford.edu/~quocle/paragraph_vector.pdf
-
-http://ai.stanford.edu/~amaas/papers/wvSent_acl2011.pdf
-'''
-
-
-
-
-
-
-
-
-
-''' 
-   Preprocessing steps 
-
-1. 
-
-function normalize_text {
-    awk '{print tolower($0);}' < $1 | sed -e 's/\./ \. /g' -e 's/<br \/>/ /g' -e 's/"/ " /g' \
-    -e 's/,/ , /g' -e 's/(/ ( /g' -e 's/)/ ) /g' -e 's/\!/ \! /g' -e 's/\?/ \? /g' \
-    -e 's/\;/ \; /g' -e 's/\:/ \: /g' > $1-norm
-  }
-
-  export LC_ALL=C
-  for j in train/pos train/neg test/pos test/neg train/unsup; do
-    rm temp
-    for i in `ls aclImdb/$j`; do cat aclImdb/$j/$i >> temp; awk 'BEGIN{print;}' >> temp; done
-    normalize_text temp
-    mv temp-norm aclImdb/$j/norm.txt
-  done
-  mv aclImdb/train/pos/norm.txt aclImdb/train-pos.txt
-  mv aclImdb/train/neg/norm.txt aclImdb/train-neg.txt
-  mv aclImdb/test/pos/norm.txt aclImdb/test-pos.txt
-  mv aclImdb/test/neg/norm.txt aclImdb/test-neg.txt
-  mv aclImdb/train/unsup/norm.txt aclImdb/train-unsup.txt
-
-  cat aclImdb/train-pos.txt aclImdb/train-neg.txt aclImdb/test-pos.txt aclImdb/test-neg.txt aclImdb/train-unsup.txt > aclImdb/alldata.txt
-  awk 'BEGIN{a=0;}{print "_*" a " " $0; a++;}' < aclImdb/alldata.txt > aclImdb/alldata-id.txt
-fi
-
-
-
-'''
