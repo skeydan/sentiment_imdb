@@ -3,6 +3,7 @@ import logging
 
 import pandas as pd 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import nltk.data
 from gensim.models import word2vec
@@ -42,54 +43,46 @@ test_reviews = pd.concat([test_neg, test_pos], ignore_index=True)
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
-# word2vec expects whole sentences
-def review_to_sentences(review, tokenizer, remove_stopwords=False):
-    review_sentences = tokenizer.tokenize(review.strip())
-    review_sentences_clean = []
-    for sentence in review_sentences:
-        if len(sentence) > 0:
-            review_sentences_clean.append(preprocess.cleanup(sentence))
-    return review_sentences_clean
-    
 sentences_train = []  
 
-i=0
 for review in train_reviews["review"]:
-    sentences_train += review_to_sentences(review, tokenizer)
-    i = i+1
-    if i % 1000 == 0: print 'Train sentences cleaned: {}'.format(i)  
+    sentences_train += [s.split() for s in tokenizer.tokenize(review)]
+
     
 print len(sentences_train)
-print sentences_train[0:5]
+print sentences_train[0]
 
 sentences_test = []  
 
-i=0
 for review in test_reviews["review"]:
-    sentences_test += review_to_sentences(review, tokenizer)
-    i = i+1
-    if i % 1000 == 0: print 'Test sentences cleaned: {}'.format(i)  
+    sentences_test += [s.split() for s in tokenizer.tokenize(review)]
     
 print len(sentences_test)
-print sentences_test[0:5]
+print sentences_test[0]
 
+all_sentences = sentences_train + sentences_test
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+if not model_exists:
 
-num_features = 300    # Word vector dimensionality                      
-min_word_count = 40   # Minimum word count                        
-num_workers = 2       # Number of threads to run in parallel
-context = 10          # Context window size                                                                                    
-downsampling = 1e-3   # Downsample setting for frequent words
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
-model = word2vec.Word2Vec(sentences_train, workers=num_workers, size=num_features, min_count = min_word_count,
-                          window = context, sample = downsampling)
+    num_features = 100    # Word vector dimensionality                      
+    min_word_count = 20   # Minimum word count                        
+    num_workers = 2       # Number of threads to run in parallel
+    context = 10          # Context window size                                                                                    
+    downsampling = 1e-3   # Downsample setting for frequent words
 
-model.init_sims(replace=True)
+    model = word2vec.Word2Vec(all_sentences, workers=num_workers, size=num_features, min_count = min_word_count,
+                              window = context, sample = downsampling)
 
-model_name = "word2vec_300features_40minwords_10context"
-model.save(model_name)
+    model.init_sims(replace=True)
 
+    model_name = "models/word2vec_100features"
+    model.save(model_name)
+
+else:    
+    model = word2vec.Word2Vec.load('models/word2vec_100features')
+    
 print {k: model.vocab[k] for k in model.vocab.keys()[:5]}
 print model.syn0.shape
 print model['movie']
@@ -110,18 +103,23 @@ correct, incorrect = len(sections[-1]['correct']), len(sections[-1]['incorrect']
 print('%s: %0.2f%% correct (%d of %d)' % (model, float(correct*100)/(correct+incorrect), correct, correct+incorrect))
 
 
+########################################################################
 
-words = ['movie', 'film', 'good', 'bad', 'awful', 'awesome', 'man', 'woman', 'like', 'story', 'plot', 'actor', 'actress']
-vectors = [model[word] for word in words]
+words = ['story', 'movie','plot', 'film', 'good', 'bad', 'awful', 'awesome', 'man', 'woman', 'like', 'actor', 'actress']
+vectors = model.syn0
 
-pca = PCA(n_components=2, whiten=True)
-pca_2d = pca.fit(vectors).transform(vectors)
-   
-tsne = TSNE(n_components=2, random_state=0)
+pca = PCA(n_components=2)
+pca_2d = pca.fit_transform(vectors)
+
+'''   
+tsne = TSNE(n_components=2, random_state=0, verbose=10, init='pca')
 tsne_2d = tsne.fit_transform(vectors)
+'''
 
+first = True
 
-for transform in [pca_2d, tsne_2d]:    
+#for name, transform in zip(['PCA', 'TSNE'], [pca_2d, tsne_2d]):  
+for name, transform in zip(['PCA'], [pca_2d]):   
     plt.figure(figsize=(6,6))
     for point, word in zip(transform , words):
         plt.scatter(point[0], point[1], c='r' if first else 'g')
@@ -134,9 +132,38 @@ for transform in [pca_2d, tsne_2d]:
             va = 'bottom',
             size = "medium"
             )
-        first = not first if alternate else first
-    plt.title('PCA')
+        first = not first 
+    plt.title(name)
     plt.tight_layout()
-    plt.show()
+plt.show()
 
 
+#####################################################################################
+
+'''
+def word_averaging(wv, words):
+    all_words, mean = set(), []
+    
+    for word in words:
+        if isinstance(word, np.ndarray):
+            mean.append(word)
+        elif word in wv.vocab:
+            mean.append(wv.syn0norm[wv.vocab[word].index])
+            all_words.add(wv.vocab[word].index)
+
+    if not mean:
+        logging.warning("cannot compute similarity with no input %s", words)
+        # FIXME: remove these examples in pre-processing
+        return np.zeros(wv.layer_size,)
+
+    mean = gensim.matutils.unitvec(np.array(mean).mean(axis=0)).astype(np.float32)
+    return mean
+
+def  word_averaging_list(wv, text_list):
+    return np.vstack([word_averaging(wv, review) for review in text_list ])
+
+
+
+X_train_word_average = word_averaging_list(wv,train_tokenized)
+X_test_word_average = word_averaging_list(wv,test_tokenized)
+'''

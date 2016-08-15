@@ -40,7 +40,9 @@ with io.open('data/aclImdb/test-neg.txt', encoding='utf-8') as f:
 test_reviews = pd.concat([test_neg, test_pos], ignore_index=True)
 
    
-    
+'''
+Not needed: input files are already cleaned up by preprocess_doc2vec.y
+
 train_reviews_clean = []
 for i in xrange( 0, train_reviews["review"].size ):
     train_reviews_clean.append(" ".join(preprocess.cleanup(train_reviews["review"][i], remove_stopwords=False)))
@@ -48,14 +50,17 @@ for i in xrange( 0, train_reviews["review"].size ):
 test_reviews_clean = []
 for i in xrange( 0, test_reviews["review"].size ):
     test_reviews_clean.append(" ".join(preprocess.cleanup(test_reviews["review"][i], remove_stopwords=False)))
+'''
 
-X_train = train_reviews_clean
-X_test = test_reviews_clean
+X_train = train_reviews['review']
+X_test = test_reviews['review']
 
 y_train = np.append(np.zeros(12500), np.ones(12500))
 y_test = np.append(np.zeros(12500), np.ones(12500)) 
 
-stopwords_nltk = stopwords.words("english")
+stopwords_nltk = set(stopwords.words("english"))
+relevant_words = set(['not', 'nor', 'no', 'wasn', 'ain', 'aren', 'very', 'only', 'but', 'don', 'isn', 'weren'])
+stopwords_filtered = list(stopwords_nltk.difference(relevant_words))
 
 
 print '''
@@ -64,7 +69,7 @@ print '''
 ******************************************************************************/
 '''
 
-for remove_stop_words in [stopwords_nltk, None]:
+for remove_stop_words in [stopwords_filtered, None]:
     print '\n\nStop words removed: {}\n*******************************'.format(remove_stop_words)    
     for i in range(1,4):
         vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
@@ -102,7 +107,7 @@ logistic_model = LogisticRegression()
 logistic_pipeline = Pipeline([("vectorizer", vectorizer), ("logistic", logistic_model)])
 
 search_params = dict(vectorizer__ngram_range = [(1,1), (1,2), (1,3)],
-                     vectorizer__stop_words = [stopwords_nltk, None],
+                     vectorizer__stop_words = [stopwords_filtered, None],
                      logistic__C = [0.01, 0.03, 0.05, 0.1])
 
 best_logistic = GridSearchCV(logistic_pipeline, param_grid=search_params, cv=5, verbose=1)
@@ -115,6 +120,27 @@ print best_logistic.best_estimator_.named_steps['logistic'].C
 utils.assess_classification_performance(best_logistic,  X_train, y_train, X_test, y_test)
 
 
+print '''
+/******************************************************************************
+*         Logistic Regression, bigrams, stopwords filtered, C=0.03              *
+******************************************************************************/
+'''
+
+vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
+                             stop_words = stopwords_filtered, max_features = 5000, ngram_range = (1,2))
+words_array = vectorizer.fit_transform(X_train).toarray()
+
+logistic_model = LogisticRegression(C=0.03) 
+logistic_model.fit(words_array, y_train)
+
+vocabulary = vectorizer.get_feature_names()
+coefs = logistic_model.coef_
+word_importances = pd.DataFrame({'word': vocabulary, 'coef': coefs.tolist()[0]})
+word_importances_sorted = word_importances.sort_values(by='coef', ascending = False)
+print word_importances_sorted
+
+word_importances_bigrams = word_importances_sorted[word_importances_sorted.word.apply(lambda c: len(c.split()) >= 2)]
+print word_importances_bigrams
 
 print '''
 /******************************************************************************
@@ -130,7 +156,7 @@ svc_model = SVC()
 svc_pipeline = Pipeline([("vectorizer", vectorizer), ("svc", svc_model)])
 
 search_params = dict(vectorizer__ngram_range = [(1,1), (1,2), (1,3)],
-                    vectorizer__stop_words = [stopwords_nltk, None])
+                    vectorizer__stop_words = [stopwords_filtered, None])
 
 best_svc = GridSearchCV(svc_pipeline, param_grid=search_params, cv=5, verbose=1)
 best_svc.fit(X_train, y_train)
@@ -156,7 +182,7 @@ forest_model = RandomForestClassifier(n_estimators = 100)
 forest_pipeline = Pipeline([("vectorizer", vectorizer), ("forest", forest_model)])
 
 search_params = dict(vectorizer__ngram_range = [(1,1), (1,2), (1,3)],
-                     vectorizer__stop_words = [stopwords_nltk, None],
+                     vectorizer__stop_words = [stopwords_filtered, None],
                      forest__max_depth = [15, 20, 25])
 
 best_forest = GridSearchCV(forest_pipeline, param_grid=search_params, cv=5, verbose=1)
@@ -178,7 +204,7 @@ print '''
 
 for i in range(1,4):
     vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                                stop_words = None, max_features = 5000, ngram_range = (1,i))
+                                stop_words = stopwords_filtered, max_features = 5000, ngram_range = (1,i))
 
     X_train_array = vectorizer.fit_transform(X_train).toarray()
     X_test_array = vectorizer.transform(X_test).toarray()
