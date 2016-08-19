@@ -119,6 +119,21 @@ print best_logistic.best_estimator_.named_steps['logistic'].C
 
 utils.assess_classification_performance(best_logistic,  X_train, y_train, X_test, y_test)
 
+'''
+{'logistic__C': 0.03, 'vectorizer__ngram_range': (1, 2), 'vectorizer__stop_words': [u'all', u'just', u'being', u'over', u'through', u'yourselves', u'its', u'before', u'hadn', u'with', u'll', u'had', u'should', u'to', u'won', u'under', u'ours', u'has', u'wouldn', u'them', u'his', u'they', u'during', u'now', u'him', u'd', u'did', u'didn', u'these', u't', u'each', u'where', u'because', u'doing', u'theirs', u'some', u'we', u'are', u'our', u'ourselves', u'out', u'what', u'for', u'below', u're', u'does', u'above', u'between', u'mustn', u'she', u'be', u'hasn', u'after', u'here', u'shouldn', u'hers', u'by', u'on', u'about', u'couldn', u'of', u'against', u's', u'or', u'own', u'into', u'yourself', u'down', u'mightn', u'your', u'from', u'her', u'whom', u'there', u'been', u'few', u'too', u'then', u'themselves', u'was', u'until', u'more', u'himself', u'both', u'herself', u'than', u'those', u'he', u'me', u'myself', u'ma', u'this', u'up', u'will', u'while', u'can', u'were', u'my', u'at', u'and', u've', u'do', u'is', u'in', u'am', u'it', u'doesn', u'an', u'as', u'itself', u'o', u'have', u'further', u'their', u'if', u'again', u'that', u'when', u'same', u'any', u'how', u'other', u'which', u'you', u'shan', u'needn', u'haven', u'who', u'most', u'such', u'why', u'a', u'off', u'i', u'm', u'having', u'so', u'y', u'the', u'yours', u'once']}
+
+Classification performance overview:
+************************************
+accuracy (train/test): 0.92876 / 0.88452
+
+Confusion_matrix (training data):
+[[11514   986]
+ [  795 11705]]
+Confusion_matrix (test data):
+[[11003  1497]
+ [ 1390 11110]]
+
+'''
 
 print '''
 /******************************************************************************
@@ -141,6 +156,7 @@ print word_importances_sorted
 
 word_importances_bigrams = word_importances_sorted[word_importances_sorted.word.apply(lambda c: len(c.split()) >= 2)]
 print word_importances_bigrams
+
 
 print '''
 /******************************************************************************

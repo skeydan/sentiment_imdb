@@ -43,26 +43,28 @@ test_reviews = pd.concat([test_neg, test_pos], ignore_index=True)
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
-sentences_train = []  
-
-for review in train_reviews["review"]:
-    sentences_train += [s.split() for s in tokenizer.tokenize(review)]
-
-    
-print len(sentences_train)
-print sentences_train[0]
-
-sentences_test = []  
-
-for review in test_reviews["review"]:
-    sentences_test += [s.split() for s in tokenizer.tokenize(review)]
-    
-print len(sentences_test)
-print sentences_test[0]
-
-all_sentences = sentences_train + sentences_test
 
 if not model_exists:
+
+    sentences_train = []  
+
+    for review in train_reviews["review"]:
+        sentences_train += [s.split() for s in tokenizer.tokenize(review)]
+
+        
+    print len(sentences_train)
+    print sentences_train[0]
+
+    sentences_test = []  
+
+    for review in test_reviews["review"]:
+        sentences_test += [s.split() for s in tokenizer.tokenize(review)]
+        
+    print len(sentences_test)
+    print sentences_test[0]
+
+    all_sentences = sentences_train + sentences_test
+
 
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -140,30 +142,75 @@ plt.show()
 
 #####################################################################################
 
-'''
-def word_averaging(wv, words):
-    all_words, mean = set(), []
-    
+
+def makeFeatureVec(words, model, num_features):
+    # Function to average all of the word vectors in a given
+    # paragraph
+    #
+    # Pre-initialize an empty numpy array (for speed)
+    featureVec = np.zeros((num_features,),dtype="float32")
+    #
+    nwords = 0.
+    # 
+    # Index2word is a list that contains the names of the words in 
+    # the model's vocabulary. Convert it to a set, for speed 
+    index2word_set = set(model.index2word)
+    #
+    # Loop over each word in the review and, if it is in the model's
+    # vocaublary, add its feature vector to the total
     for word in words:
-        if isinstance(word, np.ndarray):
-            mean.append(word)
-        elif word in wv.vocab:
-            mean.append(wv.syn0norm[wv.vocab[word].index])
-            all_words.add(wv.vocab[word].index)
-
-    if not mean:
-        logging.warning("cannot compute similarity with no input %s", words)
-        # FIXME: remove these examples in pre-processing
-        return np.zeros(wv.layer_size,)
-
-    mean = gensim.matutils.unitvec(np.array(mean).mean(axis=0)).astype(np.float32)
-    return mean
-
-def  word_averaging_list(wv, text_list):
-    return np.vstack([word_averaging(wv, review) for review in text_list ])
+        if word in index2word_set: 
+            nwords = nwords + 1.
+            featureVec = np.add(featureVec,model[word])
+    # 
+    # Divide the result by the number of words to get the average
+    featureVec = np.divide(featureVec,nwords)
+    return featureVec
 
 
+def getAvgFeatureVecs(reviews, model, num_features):
+    # Given a set of reviews (each one a list of words), calculate 
+    # the average feature vector for each one and return a 2D numpy array 
+    # 
+    # Initialize a counter
+    counter = 0.
+    # 
+    # Preallocate a 2D numpy array, for speed
+    reviewFeatureVecs = np.zeros((len(reviews),num_features),dtype="float32")
+    # 
+    # Loop through the reviews
+    for review in reviews:
+       #
+       # Print a status message every 1000th review
+       if counter%1000. == 0.:
+           print "Review %d of %d" % (counter, len(reviews))
+       # 
+       # Call the function (defined above) that makes average feature vectors
+       reviewFeatureVecs[counter] = makeFeatureVec(review, model, \
+           num_features)
+       #
+       # Increment the counter
+       counter = counter + 1.
+    return reviewFeatureVecs
 
-X_train_word_average = word_averaging_list(wv,train_tokenized)
-X_test_word_average = word_averaging_list(wv,test_tokenized)
-'''
+
+# ****************************************************************
+# Calculate average feature vectors for training and testing sets,
+# using the functions we defined above. Notice that we now use stop word
+# removal.
+
+
+words_per_review_train = []
+for review in train_reviews["review"]:
+    words = [w for w in review.lower().split() if not w in stopwords.words("english")]
+    words_per_review_train.append(words)
+
+trainDataVecs = getAvgFeatureVecs( words_per_review_train, model, num_features )
+
+words_per_review_test = []
+for review in test_reviews["review"]:
+    words = [w for w in review.lower().split() if not w in stopwords.words("english")]
+    words_per_review_test.append(words)
+
+testDataVecs = getAvgFeatureVecs( clean_test_reviews, model, num_features )
+
