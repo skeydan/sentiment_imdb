@@ -18,25 +18,12 @@ import preprocess
 import utils
 
 
-with io.open('data/aclImdb/train-pos.txt', encoding='utf-8') as f:
-    l = list(f)
-    train_pos = pd.DataFrame({'review': l})
-    
-with io.open('data/aclImdb/train-neg.txt', encoding='utf-8') as f:
-    l = list(f)
-    train_neg = pd.DataFrame({'review': l})    
-    
+with io.open('data/aclImdb/train-pos.txt', encoding='utf-8') as f: train_pos = pd.DataFrame({'review': list(f)})    
+with io.open('data/aclImdb/train-neg.txt', encoding='utf-8') as f: train_neg = pd.DataFrame({'review': list(f)}) 
 train_reviews = pd.concat([train_neg, train_pos], ignore_index=True)
 
-
-with io.open('data/aclImdb/test-pos.txt', encoding='utf-8') as f:
-    l = list(f)
-    test_pos = pd.DataFrame({'review': l})
-    
-with io.open('data/aclImdb/test-neg.txt', encoding='utf-8') as f:
-    l = list(f)
-    test_neg = pd.DataFrame({'review': l})    
-    
+with io.open('data/aclImdb/test-pos.txt', encoding='utf-8') as f: test_pos = pd.DataFrame({'review': list(f)})
+with io.open('data/aclImdb/test-neg.txt', encoding='utf-8') as f: test_neg = pd.DataFrame({'review': list(f)})    
 test_reviews = pd.concat([test_neg, test_pos], ignore_index=True)
 
    
