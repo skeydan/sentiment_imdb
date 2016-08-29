@@ -127,7 +127,7 @@ print( '''
 
 vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
                              stop_words = stopwords_filtered, max_features = 10000, ngram_range = (1,2))
-words_array = vectorizer.fit_transform(X_train).toarray()
+words_array = vectorizer.fit_transform(X_train)
 
 logistic_model = LogisticRegression(C=0.03) 
 logistic_model.fit(words_array, y_train)
@@ -204,7 +204,7 @@ print( '''
 
 for i in range(1,4):
     vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                                stop_words = stopwords_filtered, max_features = 5000, ngram_range = (1,i))
+                                stop_words = stopwords_filtered, max_features = 10000, ngram_range = (1,i))
 
     X_train_array = vectorizer.fit_transform(X_train).toarray()
     X_test_array = vectorizer.transform(X_test).toarray()

@@ -14,32 +14,17 @@ from sklearn.cross_validation import train_test_split
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 
-import preprocess
 import utils
 
 model_exists = True
 
-with io.open('data/aclImdb/train-pos.txt', encoding='utf-8') as f:
-    l = list(f)
-    train_pos = pd.DataFrame({'review': l})
-    
-with io.open('data/aclImdb/train-neg.txt', encoding='utf-8') as f:
-    l = list(f)
-    train_neg = pd.DataFrame({'review': l})    
-    
+with io.open('data/aclImdb/train-pos.txt', encoding='utf-8') as f: train_pos = pd.DataFrame({'review': list(f)})    
+with io.open('data/aclImdb/train-neg.txt', encoding='utf-8') as f: train_neg = pd.DataFrame({'review': list(f)}) 
 train_reviews = pd.concat([train_neg, train_pos], ignore_index=True)
 
-
-with io.open('data/aclImdb/test-pos.txt', encoding='utf-8') as f:
-    l = list(f)
-    test_pos = pd.DataFrame({'review': l})
-    
-with io.open('data/aclImdb/test-neg.txt', encoding='utf-8') as f:
-    l = list(f)
-    test_neg = pd.DataFrame({'review': l})    
-    
+with io.open('data/aclImdb/test-pos.txt', encoding='utf-8') as f: test_pos = pd.DataFrame({'review': list(f)})
+with io.open('data/aclImdb/test-neg.txt', encoding='utf-8') as f: test_neg = pd.DataFrame({'review': list(f)})    
 test_reviews = pd.concat([test_neg, test_pos], ignore_index=True)
-
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
@@ -47,21 +32,18 @@ tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 if not model_exists:
 
     sentences_train = []  
-
     for review in train_reviews["review"]:
         sentences_train += [s.split() for s in tokenizer.tokenize(review)]
-
-        
-    print len(sentences_train)
-    print sentences_train[0]
+      
+    print(len(sentences_train))
+    print(sentences_train[0])
 
     sentences_test = []  
-
     for review in test_reviews["review"]:
         sentences_test += [s.split() for s in tokenizer.tokenize(review)]
         
-    print len(sentences_test)
-    print sentences_test[0]
+    print(len(sentences_test))
+    print(sentences_test[0])
 
     all_sentences = sentences_train + sentences_test
 
@@ -85,18 +67,18 @@ if not model_exists:
 else:    
     model = word2vec.Word2Vec.load('models/word2vec_100features')
     
-print {k: model.vocab[k] for k in model.vocab.keys()[:5]}
-print model.syn0.shape
-print model['movie']
+print({k: model.vocab[k] for k in model.vocab.keys()[:5]})
+print(model.syn0.shape)
+print(model['movie'])
 
 model.similarity('awesome', 'awful')
 
 for word in ['awful', 'awesome']:  
-    print '\n\nSimilar words to: {}\n'.format(word)  
+    print('\n\nSimilar words to: {}\n'.format(word))  
     similar = model.most_similar(word, topn=10)
-    print 'Model: {}\n{}\n'.format(model, similar)
+    print('Model: {}\n{}\n'.format(model, similar))
 
-print 'Model: {}: {}\n'.format(model, model.most_similar(positive=['awesome'], negative=['awful']))
+print('Model: {}: {}\n'.format(model, model.most_similar(positive=['awesome'], negative=['awful'])))
 
 model.doesnt_match("good bad awful terrible".split())
 
@@ -183,7 +165,7 @@ def getAvgFeatureVecs(reviews, model, num_features):
        #
        # Print a status message every 1000th review
        if counter%1000. == 0.:
-           print "Review %d of %d" % (counter, len(reviews))
+           print("Review %d of %d" % (counter, len(reviews)))
        # 
        # Call the function (defined above) that makes average feature vectors
        reviewFeatureVecs[counter] = makeFeatureVec(review, model, \
