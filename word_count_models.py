@@ -14,10 +14,6 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 import io
 from nltk.corpus import stopwords
 
-import preprocess
-import utils
-
-
 with io.open('data/aclImdb/train-pos.txt', encoding='utf-8') as f: train_pos = pd.DataFrame({'review': list(f)})    
 with io.open('data/aclImdb/train-neg.txt', encoding='utf-8') as f: train_neg = pd.DataFrame({'review': list(f)}) 
 train_reviews = pd.concat([train_neg, train_pos], ignore_index=True)
@@ -50,24 +46,22 @@ relevant_words = set(['not', 'nor', 'no', 'wasn', 'ain', 'aren', 'very', 'only',
 stopwords_filtered = list(stopwords_nltk.difference(relevant_words))
 
 
-print '''
+print( '''
 /******************************************************************************
 *    Inspect vocabularies built by CountVectorizer for ngram ranges 1,2,3     *
 ******************************************************************************/
-'''
+''')
 
 for remove_stop_words in [stopwords_filtered, None]:
-    print '\n\nStop words removed: {}\n*******************************'.format(remove_stop_words)    
-    for i in range(1,4):
+    print('\n\nStop words removed: {}\n*******************************'.format(remove_stop_words))
+    for i in range(1,5):
         vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                                    stop_words = remove_stop_words, max_features = 5000, ngram_range = (1,i))
+                                    stop_words = remove_stop_words, max_features = 10000, ngram_range = (1,i))
 
         # sparse matrix
         words_array = vectorizer.fit_transform(X_train).toarray()
 
         vocabulary = vectorizer.get_feature_names()
-        #print vocabulary[0:10]
-        #print vectorizer.vocabulary_.get('able')
 
         counts = np.sum(words_array, axis=0)
         word_counts_overall = pd.DataFrame({'word': vocabulary, 'count': counts})
@@ -75,19 +69,22 @@ for remove_stop_words in [stopwords_filtered, None]:
         word_counts_for_max_ngram = word_counts_overall[word_counts_overall.word.apply(lambda c: len(c.split()) >= i)]
            
         word_counts_for_max_ngram_sorted = word_counts_for_max_ngram.sort_values(by='count', ascending=False)
-        print '\nMost frequent ngrams for ngrams in range 1 - {}:'.format(i)
+        print('\nMost frequent ngrams for ngrams in range 1 - {}:'.format(i))
             
-        print word_counts_for_max_ngram_sorted[:40]
+        print(word_counts_for_max_ngram_sorted[:40])
+        if remove_stop_words != None:
+            filename = 'word_counts_sorted_ngram_' + str(i) + '_stopwords_removed.csv'
+            word_counts_for_max_ngram_sorted.to_csv(filename)
 
 
-print '''
+print( '''
 /******************************************************************************
 *         Logistic Regression, using different numbers of ngrams              *
 ******************************************************************************/
-'''
+''')
 
 vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                             stop_words = None, max_features = 5000)
+                             stop_words = None, max_features = 10000)
 
 logistic_model = LogisticRegression() 
 
@@ -102,7 +99,7 @@ best_logistic.fit(X_train, y_train)
 
 print(best_logistic.best_params_)
 print(best_logistic.grid_scores_)
-print best_logistic.best_estimator_.named_steps['logistic'].C
+print(best_logistic.best_estimator_.named_steps['logistic'].C)
 
 utils.assess_classification_performance(best_logistic,  X_train, y_train, X_test, y_test)
 
@@ -122,14 +119,14 @@ Confusion_matrix (test data):
 
 '''
 
-print '''
+print( '''
 /******************************************************************************
 *         Logistic Regression, bigrams, stopwords filtered, C=0.03              *
 ******************************************************************************/
-'''
+''')
 
 vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                             stop_words = stopwords_filtered, max_features = 5000, ngram_range = (1,2))
+                             stop_words = stopwords_filtered, max_features = 10000, ngram_range = (1,2))
 words_array = vectorizer.fit_transform(X_train).toarray()
 
 logistic_model = LogisticRegression(C=0.03) 
@@ -139,20 +136,20 @@ vocabulary = vectorizer.get_feature_names()
 coefs = logistic_model.coef_
 word_importances = pd.DataFrame({'word': vocabulary, 'coef': coefs.tolist()[0]})
 word_importances_sorted = word_importances.sort_values(by='coef', ascending = False)
-print word_importances_sorted
+print(word_importances_sorted)
 
 word_importances_bigrams = word_importances_sorted[word_importances_sorted.word.apply(lambda c: len(c.split()) >= 2)]
-print word_importances_bigrams
+print (word_importances_bigrams)
 
 
-print '''
+print( '''
 /******************************************************************************
 *                         SVM, using different numbers of ngrams              *
 ******************************************************************************/
-'''
+''')
 
 vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                             stop_words = None, max_features = 5000)
+                             stop_words = None, max_features = 10000)
 
 svc_model = SVC() 
 
@@ -171,14 +168,14 @@ utils.assess_classification_performance(best_svc,  X_train, y_train, X_test, y_t
 
 
 
-print '''
+print( '''
 /******************************************************************************
 *         Random Forest Pipeline, using different numbers of ngrams           *
 ******************************************************************************/
-'''
+''')
 
 vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
-                             stop_words = None, max_features = 5000)
+                             stop_words = None, max_features = 10000)
 
 forest_model = RandomForestClassifier(n_estimators = 100) 
 
@@ -193,17 +190,17 @@ best_forest.fit(X_train, y_train)
 
 print(best_forest.best_params_)
 print(best_forest.grid_scores_)
-print best_forest.best_estimator_.named_steps['forest'].feature_importances_
+print( best_forest.best_estimator_.named_steps['forest'].feature_importances_)
 
 utils.assess_classification_performance(best_forest,  X_train, y_train, X_test, y_test)
 
 
 
-print '''
+print( '''
 /******************************************************************************
 *                        QDA, using different numbers of ngrams               *
 ******************************************************************************/
-'''
+''')
 
 for i in range(1,4):
     vectorizer = CountVectorizer(analyzer = "word", tokenizer = None, preprocessor = None,
