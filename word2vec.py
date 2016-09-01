@@ -6,13 +6,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import nltk.data
+from nltk.corpus import stopwords
 from gensim.models import word2vec
 import io
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.cross_validation import train_test_split
+from sklearn.linear_model import LogisticRegressionCV
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
+from sklearn.svm import SVC
 
 import utils
 
@@ -25,6 +27,9 @@ train_reviews = pd.concat([train_neg, train_pos], ignore_index=True)
 with io.open('data/aclImdb/test-pos.txt', encoding='utf-8') as f: test_pos = pd.DataFrame({'review': list(f)})
 with io.open('data/aclImdb/test-neg.txt', encoding='utf-8') as f: test_neg = pd.DataFrame({'review': list(f)})    
 test_reviews = pd.concat([test_neg, test_pos], ignore_index=True)
+
+y_train = np.append(np.zeros(12500), np.ones(12500))
+y_test = np.append(np.zeros(12500), np.ones(12500))
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 
@@ -67,7 +72,7 @@ if not model_exists:
 else:    
     model = word2vec.Word2Vec.load('models/word2vec_100features')
     
-print({k: model.vocab[k] for k in model.vocab.keys()[:5]})
+print({k: model.vocab[k] for k in model.vocab.keys()})
 print(model.syn0.shape)
 print(model['movie'])
 
@@ -82,10 +87,11 @@ print('Model: {}: {}\n'.format(model, model.most_similar(positive=['awesome'], n
 
 model.doesnt_match("good bad awful terrible".split())
 
+'''
 sections = model.accuracy('data/questions-words.txt')
 correct, incorrect = len(sections[-1]['correct']), len(sections[-1]['incorrect'])
 print('%s: %0.2f%% correct (%d of %d)' % (model, float(correct*100)/(correct+incorrect), correct, correct+incorrect))
-
+'''
 
 ########################################################################
 
@@ -95,10 +101,10 @@ vectors = model.syn0
 pca = PCA(n_components=2)
 pca_2d = pca.fit_transform(vectors)
 
-'''   
+
 tsne = TSNE(n_components=2, random_state=0, verbose=10, init='pca')
 tsne_2d = tsne.fit_transform(vectors)
-'''
+
 
 first = True
 
@@ -122,65 +128,36 @@ for name, transform in zip(['PCA'], [pca_2d]):
 plt.show()
 
 
-#####################################################################################
-
+print( '''
+/******************************************************************************
+*        Build average vectors for train and test reviews                     *
+******************************************************************************/
+''')
 
 def makeFeatureVec(words, model, num_features):
-    # Function to average all of the word vectors in a given
-    # paragraph
-    #
-    # Pre-initialize an empty numpy array (for speed)
     featureVec = np.zeros((num_features,),dtype="float32")
-    #
     nwords = 0.
-    # 
-    # Index2word is a list that contains the names of the words in 
-    # the model's vocabulary. Convert it to a set, for speed 
     index2word_set = set(model.index2word)
-    #
-    # Loop over each word in the review and, if it is in the model's
-    # vocaublary, add its feature vector to the total
     for word in words:
         if word in index2word_set: 
             nwords = nwords + 1.
             featureVec = np.add(featureVec,model[word])
-    # 
-    # Divide the result by the number of words to get the average
     featureVec = np.divide(featureVec,nwords)
     return featureVec
 
 
 def getAvgFeatureVecs(reviews, model, num_features):
-    # Given a set of reviews (each one a list of words), calculate 
-    # the average feature vector for each one and return a 2D numpy array 
-    # 
-    # Initialize a counter
     counter = 0.
-    # 
-    # Preallocate a 2D numpy array, for speed
     reviewFeatureVecs = np.zeros((len(reviews),num_features),dtype="float32")
-    # 
-    # Loop through the reviews
     for review in reviews:
-       #
-       # Print a status message every 1000th review
        if counter%1000. == 0.:
            print("Review %d of %d" % (counter, len(reviews)))
-       # 
-       # Call the function (defined above) that makes average feature vectors
-       reviewFeatureVecs[counter] = makeFeatureVec(review, model, \
-           num_features)
-       #
-       # Increment the counter
+       reviewFeatureVecs[counter] = makeFeatureVec(review, model, num_features)
        counter = counter + 1.
     return reviewFeatureVecs
 
 
-# ****************************************************************
-# Calculate average feature vectors for training and testing sets,
-# using the functions we defined above. Notice that we now use stop word
-# removal.
-
+num_features = 100 
 
 words_per_review_train = []
 for review in train_reviews["review"]:
@@ -189,10 +166,112 @@ for review in train_reviews["review"]:
 
 trainDataVecs = getAvgFeatureVecs( words_per_review_train, model, num_features )
 
+i=0
 words_per_review_test = []
 for review in test_reviews["review"]:
     words = [w for w in review.lower().split() if not w in stopwords.words("english")]
     words_per_review_test.append(words)
+    if i%100. == 0.: print(i)
+    i=i+1
 
-testDataVecs = getAvgFeatureVecs( clean_test_reviews, model, num_features )
+testDataVecs = getAvgFeatureVecs( words_per_review_test, model, num_features )
 
+
+print( '''
+/******************************************************************************
+*                          Logistic RegressionCV                              *
+******************************************************************************/
+''')
+
+logistic_model = LogisticRegressionCV()
+logistic_model.fit(trainDataVecs, y_train)
+
+logistic_model.C_
+
+utils.assess_classification_performance(logistic_model,  trainDataVecs, y_train, testDataVecs, y_test)
+'''
+Classification performance overview:
+************************************
+accuracy (train/test): 0.8394 / 0.8346
+
+Confusion_matrix (training data):
+[[10433  2067]
+ [ 1948 10552]]
+Confusion_matrix (test data):
+[[10573  1927]
+ [ 2208 10292]]
+'''
+
+
+print( '''
+/******************************************************************************
+*                         SVM                                                *
+******************************************************************************/
+''')
+
+svc_model = SVC() 
+svc_model.fit(trainDataVecs, y_train)
+utils.assess_classification_performance(svc_model,  trainDataVecs, y_train, testDataVecs, y_test)
+
+'''
+Classification performance overview:
+************************************
+accuracy (train/test): 0.7012 / 0.69676
+
+Confusion_matrix (training data):
+[[9198 3302]
+ [4168 8332]]
+Confusion_matrix (test data):
+[[9360 3140]
+ [4441 8059]]
+
+'''
+
+print( '''
+/******************************************************************************
+*                      Random Forest                                          *
+******************************************************************************/
+''')
+
+forest_model = RandomForestClassifier(n_estimators = 100) 
+forest_model.fit(trainDataVecs, y_train)
+utils.assess_classification_performance(forest_model,  trainDataVecs, y_train, testDataVecs, y_test)
+
+'''
+Classification performance overview:
+************************************
+accuracy (train/test): 1.0 / 0.79048
+
+Confusion_matrix (training data):
+[[12500     0]
+ [    0 12500]]
+Confusion_matrix (test data):
+[[9894 2606]
+ [2632 9868]]
+
+'''
+
+
+
+print( '''
+/******************************************************************************
+*                        QDA                                                 *
+******************************************************************************/
+''')
+
+qda_model = QuadraticDiscriminantAnalysis() 
+qda_model.fit(trainDataVecs, y_train)
+utils.assess_classification_performance(qda_model,  trainDataVecs, y_train, testDataVecs, y_test)
+
+'''
+Classification performance overview:
+************************************
+accuracy (train/test): 0.82652 / 0.79388
+
+Confusion_matrix (training data):
+[[10722  1778]
+ [ 2559  9941]]
+Confusion_matrix (test data):
+[[10433  2067]
+ [ 3086  9414]]
+'''
