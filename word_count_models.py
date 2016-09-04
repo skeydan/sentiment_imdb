@@ -194,6 +194,18 @@ print( best_forest.best_estimator_.named_steps['forest'].feature_importances_)
 
 utils.assess_classification_performance(best_forest,  X_train, y_train, X_test, y_test)
 
+'''
+Classification performance overview:
+************************************
+accuracy (train/test): 0.93516 / 0.84348
+
+Confusion_matrix (training data):
+[[11170  1330]
+ [  291 12209]]
+Confusion_matrix (test data):
+[[10120  2380]
+ [ 1533 10967]]
+'''
 
 
 print( '''
