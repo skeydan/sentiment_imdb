@@ -87,6 +87,7 @@ print('Model: {}: {}\n'.format(model, model.most_similar(positive=['awesome'], n
 
 model.doesnt_match("good bad awful terrible".split())
 
+
 '''
 sections = model.accuracy('data/questions-words.txt')
 correct, incorrect = len(sections[-1]['correct']), len(sections[-1]['incorrect'])
