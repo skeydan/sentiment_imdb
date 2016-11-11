@@ -46,10 +46,29 @@ def get_context(text, word, size):
 
 contains_awful = X_train[X_train.str.contains(' awful ')]
 context_awful = contains_awful.apply(lambda x: get_context(x, 'awful', 8))
-context_awful
+#print(context_awful)
 
 contains_awesome = X_train[X_train.str.contains(' awesome ')]
 context_awesome = contains_awesome.apply(lambda x: get_context(x, 'awesome', 8))
-context_awesome
+#print(context_awesome)
+
+awesome_list = ['amazing', 'incredible', 'awful', 'excellent', 'fantastic', 'alright', 'cool', 'outstanding', 'astounding', 'terrific']
+awful_list = ['terrible', 'horrible', 'atrocious', 'dreadful', 'appalling', 'horrendous', 'abysmal', 'amazing', 'awesome', 'bad']               
+
+num_awesome = len(X_train[X_train.str.contains(' awesome ')])
+print('num_awesome: {}'.format(num_awesome))
+num_awful = len(X_train[X_train.str.contains(' awful ')])
+print('num_awful: {}'.format(num_awful))
+
+for word in awesome_list:
+    contains_both = X_train[X_train.str.contains(' awesome ') & X_train.str.contains(word)]
+    print('awesome and {}: {}'.format(word, len(contains_both)))
+    
+for word in awful_list:
+    contains_both = X_train[X_train.str.contains(' awful ') & X_train.str.contains(word)]
+    print('awful and {}: {}'.format(word, len(contains_both)))
+    
+    
+
                                      
                                      
